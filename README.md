@@ -109,7 +109,7 @@ For usage with environment variables:
 OPENAI_API_KEY="your-openai-api-key" \
 QDRANT_URL="http://localhost:6333" \
 COLLECTION_NAME="my-collection" \
-npx @jtsang/qdrant-mcp
+npx @jtsang/qdrant-mcp@latest
 ```
 
 ### With Claude Desktop
@@ -123,7 +123,7 @@ Add the following to your Claude Desktop configuration file:
   "mcpServers": {
     "qdrant": {
       "command": "npx",
-      "args": ["-y", "@jtsang/qdrant-mcp"],
+      "args": ["-y", "@jtsang/qdrant-mcp@latest"],
       "env": {
         "OPENAI_API_KEY": "your-openai-api-key",
         "QDRANT_URL": "http://localhost:6333",
@@ -161,12 +161,7 @@ For Windows users who encounter npx execution issues, use this configuration:
   "mcpServers": {
     "qdrant": {
       "command": "cmd",
-      "args": [
-        "/c",
-        "npx",
-        "-y",
-        "@jtsang/qdrant-mcp"
-      ],
+      "args": ["/c", "npx", "-y", "@jtsang/qdrant-mcp@latest"],
       "env": {
         "OPENAI_API_KEY": "your-openai-api-key",
         "QDRANT_URL": "http://localhost:6333",

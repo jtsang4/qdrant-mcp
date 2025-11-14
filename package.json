@@ -7,6 +7,10 @@
     "name": "James Tsang",
     "email": "info@jtsang.me"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jtsang4/qdrant-mcp.git"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
