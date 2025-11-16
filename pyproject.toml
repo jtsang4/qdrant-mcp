@@ -1,9 +1,25 @@
 [project]
 name = "better-qdrant-mcp"
-version = "0.2.0"
-description = "Add your description here"
+version = "0.2.1"
+description = "A Python MCP server for Qdrant memory storage and semantic search, compatible with Cursor-like MCP clients."
 readme = "README.md"
 authors = [{ name = "jtsang4", email = "info@jtsang.me" }]
+keywords = [
+    "mcp",
+    "model-context-protocol",
+    "qdrant",
+    "vector-database",
+    "semantic-search",
+    "memory",
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "License :: OSI Approved :: MIT License",
+    "Intended Audience :: Developers",
+    "Topic :: Database",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
 requires-python = ">=3.12"
 dependencies = [
     "fastembed>=0.7.3",
@@ -12,6 +28,12 @@ dependencies = [
     "openai>=1.47.0",
     "qdrant-client>=1.15.1",
 ]
+
+[project.urls]
+Homepage = "https://github.com/jtsang4/better-qdrant-mcp"
+Repository = "https://github.com/jtsang4/better-qdrant-mcp"
+Issues = "https://github.com/jtsang4/better-qdrant-mcp/issues"
+Documentation = "https://github.com/jtsang4/better-qdrant-mcp#readme"
 
 [build-system]
 requires = ["uv_build>=0.9.6,<0.10.0"]
