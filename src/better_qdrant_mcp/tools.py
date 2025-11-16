@@ -5,7 +5,7 @@ from fastmcp import FastMCP
 import json
 
 from .config import get_settings
-from .embeddings import Embeddings
+from .embeddings import Embeddings, SparseEmbeddings
 from .qdr_client import QdrClient
 
 
@@ -38,7 +38,7 @@ def memory_store(
 
     vector = Embeddings.embed_one(information)
 
-    # Ensure collection exists with the right dimensionality
+    # Ensure collection exists with the right dimensionality for dense vectors
     _qdr.ensure_collection(collection, len(vector))
 
     point_id = str(__import__("time").time_ns())
@@ -49,33 +49,26 @@ def memory_store(
     if metadata:
         payload["metadata"] = metadata
 
-    _qdr.upsert_points(
-        collection,
-        [
-            {
-                "id": point_id,
-                "vector": (
-                    {"dense": vector}
-                    if (
-                        isinstance(
-                            _qdr.collection_info(collection)
-                            .get("config", {})
-                            .get("params", {})
-                            .get("vectors"),
-                            dict,
-                        )
-                        and "dense"
-                        in _qdr.collection_info(collection)
-                        .get("config", {})
-                        .get("params", {})
-                        .get("vectors", {})
-                    )
-                    else vector
-                ),
-                "payload": payload,
-            }
-        ],
-    )
+    info = _qdr.collection_info(collection)
+    vectors_cfg = info.get("config", {}).get("params", {}).get("vectors")
+    has_named_dense = isinstance(vectors_cfg, dict) and "dense" in vectors_cfg
+
+    # Try to detect sparse configuration
+    sparse_cfg = info.get("config", {}).get("params", {}).get("sparse_vectors")
+    has_sparse = isinstance(sparse_cfg, dict) and "sparse" in sparse_cfg
+
+    point: Dict[str, Any] = {
+        "id": point_id,
+        "vector": {"dense": vector} if has_named_dense else vector,
+        "payload": payload,
+    }
+
+    if has_sparse:
+        indices, values = SparseEmbeddings.embed_one(information)
+        if indices and values:
+            point["sparse_vectors"] = {"sparse": {"indices": indices, "values": values}}
+
+    _qdr.upsert_points(collection, [point])
 
     return f"Information stored successfully in collection '{collection}' with ID: {point_id}"
 
@@ -97,20 +90,38 @@ def memory_search(
         raise ValueError("Collection name is required")
 
     query_vec = Embeddings.embed_one(query)
-    # Only pass a vector name if the collection defines a named 'dense' vector
+
+    # Inspect collection config to decide whether hybrid search is available
     try:
         _info = _qdr.collection_info(collection)
-        _vectors = (_info or {}).get("config", {}).get("params", {}).get("vectors")
-        use_dense = isinstance(_vectors, dict) and "dense" in _vectors
     except Exception:
-        use_dense = False
+        _info = {}
 
-    results = _qdr.search(
-        collection,
-        query_vec,
-        limit,
-        vector_name=("dense" if use_dense else None),
-    )
+    _vectors = (_info or {}).get("config", {}).get("params", {}).get("vectors")
+    vectors_is_named = isinstance(_vectors, dict)
+    has_named_dense = vectors_is_named and "dense" in _vectors
+
+    sparse_cfg = (_info or {}).get("config", {}).get("params", {}).get("sparse_vectors")
+    has_sparse = isinstance(sparse_cfg, dict) and "sparse" in sparse_cfg
+
+    if has_named_dense and has_sparse:
+        # Hybrid search: dense + sparse (BM25)
+        indices, values = SparseEmbeddings.embed_one(query)
+        results = _qdr.hybrid_search(
+            collection,
+            dense_vector=query_vec,
+            sparse_indices=indices,
+            sparse_values=values,
+            limit=limit,
+        )
+    else:
+        # Fallback: dense-only search (backward compatible)
+        results = _qdr.search(
+            collection,
+            query_vec,
+            limit,
+            vector_name=("dense" if has_named_dense else None),
+        )
 
     if not results:
         return f'No relevant information found for query: "{query}"'

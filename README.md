@@ -64,3 +64,5 @@ Configure in MCP clients as a stdio server. Example (cursor-like):
 - memory-store(information, metadata?: dict, collection_name?: str) -> str
 - memory-search(query, limit?: int=5, collection_name?: str) -> str
 - memory-debug(collection_name?: str) -> str
+
+`memory-search` uses hybrid search in Qdrant (dense + sparse). If the collection is configured with named vectors `dense` and `sparse`, queries are ranked by fusing dense OpenAI embeddings and sparse BM25 scores; otherwise it falls back to dense-only search.

@@ -54,7 +54,12 @@ class QdrClient:
         self._client.upsert(
             collection_name=name,
             points=[
-                qm.PointStruct(id=p["id"], vector=p["vector"], payload=p.get("payload"))
+                qm.PointStruct(
+                    id=p["id"],
+                    vector=p.get("vector"),
+                    payload=p.get("payload"),
+                    sparse_vectors=p.get("sparse_vectors"),
+                )
                 for p in points
             ],
         )
@@ -76,6 +81,55 @@ class QdrClient:
         )
         out: List[Dict[str, Any]] = []
         for r in results:
+            out.append(
+                {
+                    "id": r.id,
+                    "score": r.score,
+                    "payload": r.payload,
+                }
+            )
+        return out
+
+    def hybrid_search(
+        self,
+        name: str,
+        dense_vector: List[float],
+        sparse_indices: Optional[List[int]] = None,
+        sparse_values: Optional[List[float]] = None,
+        limit: int = 5,
+        fusion: qm.Fusion = qm.Fusion.RRF,
+    ) -> List[Dict[str, Any]]:
+        """Hybrid dense+sparse search using Qdrant query_points API.
+
+        Falls back to dense-only search if sparse vectors are not provided.
+        """
+
+        if sparse_indices is None or sparse_values is None:
+            return self.search(
+                name=name, vector=dense_vector, limit=limit, vector_name="dense"
+            )
+
+        # Prefetch.query expects either a dense vector list or a sparse vector dict
+        prefetch: List[qm.Prefetch] = [
+            qm.Prefetch(query=dense_vector, using="dense"),
+            qm.Prefetch(
+                query={"indices": sparse_indices, "values": sparse_values},
+                using="sparse",
+            ),
+        ]
+
+        res = self._client.query_points(
+            collection_name=name,
+            prefetch=prefetch,
+            query=qm.FusionQuery(fusion=fusion),
+            limit=limit,
+            with_payload=True,
+        )
+
+        out: List[Dict[str, Any]] = []
+        # query_points returns a struct with .points list
+        points = getattr(res, "points", res)
+        for r in points:
             out.append(
                 {
                     "id": r.id,

@@ -1,7 +1,12 @@
 from __future__ import annotations
 
 from typing import Iterable, List
+import re
+
+import jieba
+from fastembed import SparseTextEmbedding
 from openai import OpenAI
+
 from .config import get_settings
 
 
@@ -42,3 +47,39 @@ class Embeddings:
             input=list(texts),
         )
         return [list(item.embedding) for item in resp.data]
+
+
+_CJK_RE = re.compile(r"[\u4e00-\u9fff]")
+
+
+def _preprocess_text(text: str) -> str:
+    text = text.strip()
+    if _CJK_RE.search(text):
+        tokens = jieba.lcut(text)
+        return " ".join(t for t in tokens if t.strip())
+    return " ".join(text.lower().split())
+
+
+class SparseEmbeddings:
+    _model: SparseTextEmbedding | None = None
+
+    @classmethod
+    def model(cls) -> SparseTextEmbedding:
+        if cls._model is None:
+            cls._model = SparseTextEmbedding(model_name="Qdrant/bm25")
+        return cls._model
+
+    @classmethod
+    def embed_one(cls, text: str) -> tuple[List[int], List[float]]:
+        processed = _preprocess_text(text)
+        for emb in cls.model().embed([processed]):
+            return list(emb.indices), list(emb.values)
+        return [], []
+
+    @classmethod
+    def embed_many(cls, texts: Iterable[str]) -> List[tuple[List[int], List[float]]]:
+        processed = [_preprocess_text(t) for t in texts]
+        out: List[tuple[List[int], List[float]]] = []
+        for emb in cls.model().embed(processed):
+            out.append((list(emb.indices), list(emb.values)))
+        return out
