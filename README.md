@@ -1,6 +1,6 @@
-# better-qdrant-mcp (Python)
+# better-qdrant-mcp
 
-A stdio MCP server implemented with fastmcp, OpenAI embeddings, and qdrant-client. It provides three tools equivalent to the Node.js version:
+A MCP server implemented with fastmcp, OpenAI embeddings, and qdrant-client. It provides three tools equivalent to the Node.js version:
 
 - memory-store
 - memory-search
@@ -32,8 +32,12 @@ pip install -e .
 ## Run (stdio)
 
 ```bash
-uv run -m better_qdrant_mcp
-# or
+uvx better-qdrant-mcp
+```
+
+You can still run it via Python directly if you prefer:
+
+```bash
 python -m better_qdrant_mcp
 ```
 
@@ -44,8 +48,8 @@ Configure in MCP clients as a stdio server. Example (cursor-like):
   "mcpServers": {
     "qdrant-mcp-python": {
       "type": "stdio",
-      "command": "uv",
-      "args": ["run", "-m", "better_qdrant_mcp"],
+      "command": "uvx",
+      "args": ["better-qdrant-mcp"],
       "env": {
         "QDRANT_URL": "http://localhost:6333",
         "COLLECTION_NAME": "long_term_memory"
