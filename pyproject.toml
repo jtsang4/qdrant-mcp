@@ -43,4 +43,4 @@ requires = ["uv_build>=0.9.6,<0.10.0"]
 build-backend = "uv_build"
 
 [project.scripts]
-better-qdrant-mcp = "better_qdrant_mcp:run"
+better-qdrant-mcp = "better_qdrant_mcp:main"
