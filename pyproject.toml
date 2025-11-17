@@ -1,6 +1,6 @@
 [project]
 name = "better-qdrant-mcp"
-version = "0.3.0"
+version = "0.3.1"
 description = "A Python MCP server for Qdrant memory storage and semantic search, compatible with Cursor-like MCP clients."
 readme = "README.md"
 authors = [{ name = "jtsang4", email = "info@jtsang.me" }]
