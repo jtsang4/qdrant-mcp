@@ -25,9 +25,7 @@ services:
 
   # MCP Server (single service, transport selected via environment)
   mcp:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: ghcr.io/jtsang4/better-qdrant-mcp:latest
     container_name: better-qdrant-mcp
     restart: unless-stopped
     ports:

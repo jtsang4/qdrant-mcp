@@ -122,12 +122,19 @@ This command will first clean the `dist` directory and then run `uv build` to pr
 
 Docker Compose provides Qdrant + this MCP server as a single service. Transport (`stdio`, `sse`, `streamable-http`) is selected via `MCP_TRANSPORT`.
 
+The Docker image is built and published automatically to GitHub Container Registry as:
+
+- `ghcr.io/jtsang4/better-qdrant-mcp:latest`
+- Additional tags for branches, tags, and commit SHAs
+
+The provided `docker-compose.yml` uses this published image directly, so you **do not need to build the image locally**.
+
 ```bash
-# Start Qdrant + MCP
+# Start Qdrant + MCP using the published image
 docker compose up -d
 
-# Rebuild image and restart
-docker compose up -d --build
+# Pull the latest published image and restart services
+docker compose pull mcp && docker compose up -d
 
 # Stop services
 docker compose down
