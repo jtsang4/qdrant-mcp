@@ -50,14 +50,21 @@ class Embeddings:
 
 
 _CJK_RE = re.compile(r"[\u4e00-\u9fff]")
+_TOKEN_CHARS_RE = re.compile(r"[A-Za-z0-9\u4e00-\u9fff]")
 
 
 def _preprocess_text(text: str) -> str:
     text = text.strip()
     if _CJK_RE.search(text):
         tokens = jieba.lcut(text)
-        return " ".join(t for t in tokens if t.strip())
-    return " ".join(text.lower().split())
+        return " ".join(
+            t.lower() for t in tokens if t.strip() and _TOKEN_CHARS_RE.search(t)
+        )
+    return " ".join(
+        t
+        for t in (token.lower() for token in text.split())
+        if t.strip() and _TOKEN_CHARS_RE.search(t)
+    )
 
 
 class SparseEmbeddings:
