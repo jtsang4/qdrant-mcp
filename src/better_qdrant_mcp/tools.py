@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Union, Annotated
+from typing import Any, Dict, List, Annotated
 import os
 import argparse
 from fastmcp import FastMCP
@@ -25,15 +25,16 @@ def _ensure_list(v: Any) -> List[str]:
 
 
 @mcp.tool(
-    name="memory-store",
+    name="store-knowledge",
     description=(
-        "Store long-term textual information in the underlying vector memory store. "
-        "Automatically embeds the text with OpenAI and returns the stored ID."
+        "Store useful information or knowledge into the long-term knowledge base (Qdrant). "
+        "This allows the agent to persist data that can be retrieved later or by other agents. "
+        "Automatically embeds the text and returns the stored ID."
     ),
 )
-def memory_store(
+def store_knowledge(
     content: str = Field(
-        ..., description="The main text content to store as long-term memory."
+        ..., description="The content to store in the knowledge base."
     ),
     title: str = Field(
         "", description="Optional title for the content, helpful for search context."
@@ -107,14 +108,15 @@ def memory_store(
 
 
 @mcp.tool(
-    name="memory-search",
+    name="search-knowledge",
     description=(
-        "Retrieve relevant information previously stored in vector memory using semantic (dense) search with OpenAI embeddings."
+        "Search for relevant information in the long-term knowledge base using semantic search. "
+        "Use this to retrieve context, facts, or past interactions stored in Qdrant."
     ),
 )
-def memory_search(
+def search_knowledge(
     query: str = Field(
-        ..., description="The search query text to find relevant memories."
+        ..., description="The search query to find relevant information."
     ),
     limit: int = Field(
         5, description="Maximum number of results to return (default: 5)."
@@ -186,12 +188,13 @@ def memory_search(
 
 
 @mcp.tool(
-    name="memory-debug",
+    name="inspect-knowledge-base",
     description=(
-        "Debug/inspection tool for memory collections. Shows collection info and sample payloads."
+        "Inspect the knowledge base configuration and view sample data. "
+        "Useful for debugging collection settings or verifying stored content."
     ),
 )
-def memory_debug(
+def inspect_knowledge_base(
     collection_name: str = Field(
         "",
         description="Optional collection to inspect; defaults to env COLLECTION_NAME.",
@@ -225,16 +228,16 @@ def memory_debug(
 
 
 @mcp.tool(
-    name="memory-delete",
+    name="delete-knowledge",
     description=(
-        "Delete one or more stored memory items from Qdrant by their point IDs. "
-        "Use the 'point_id' field returned from memory-search as input."
+        "Delete specific information from the knowledge base using point IDs. "
+        "Use the 'id' field returned from search-knowledge results."
     ),
 )
-def memory_delete(
+def delete_knowledge(
     ids: Annotated[List[str], BeforeValidator(_ensure_list)] = Field(
         ...,
-        description="A single point ID or a list of point IDs to delete. Use the 'point_id' from memory-search results.",
+        description="A single point ID or a list of point IDs to delete. Use the 'id' from search-knowledge results.",
     ),
     collection_name: str = Field(
         "",

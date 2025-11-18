@@ -9,10 +9,11 @@ An MCP server implemented with `fastmcp`, OpenAI embeddings, and `qdrant-client`
 - **MCP server** built with `fastmcp`
 - **Hybrid search** in Qdrant (dense OpenAI embeddings + sparse BM25)
 - **Chinese support** via jieba
-- **Three tools** aligned with the Node.js version:
-  - `memory-store`
-  - `memory-search`
-  - `memory-debug`
+- **Knowledge Base tools** (renamed from memory tools to avoid conflict):
+  - `store-knowledge`
+  - `search-knowledge`
+  - `inspect-knowledge-base`
+  - `delete-knowledge`
 - **Multiple transports**: stdio, SSE, streamable HTTP
 
 ### Requirements
@@ -44,13 +45,18 @@ Advanced / transport-related env:
 
 #### 2. Available MCP tools
 
-Once the server is running, the MCP client will see three tools:
+Once the server is running, the MCP client will see these tools:
 
-- `memory-store(information, metadata?: dict, collection_name?: str) -> str`
-- `memory-search(query, limit?: int=5, collection_name?: str) -> str`
-- `memory-debug(collection_name?: str) -> str`
+- `store-knowledge(content: str, title?: str, tags?: list[str], metadata?: dict, collection_name?: str) -> str`
+- `search-knowledge(query: str, limit?: int=5, collection_name?: str) -> str`
+- `inspect-knowledge-base(collection_name?: str) -> str`
+- `delete-knowledge(ids: list[str] | str, collection_name?: str) -> str`
 
-`memory-search` uses hybrid search in Qdrant (dense + sparse). If the collection is configured with named vectors `dense` and `sparse`, queries are ranked by fusing dense OpenAI embeddings and sparse BM25 scores; otherwise it falls back to dense-only search.
+`store-knowledge` automatically embeds the text using OpenAI and stores it in Qdrant (Knowledge Base), returning the stored point ID. The `title` and `tags` fields help improve search context and categorization.
+
+`search-knowledge` uses hybrid search in Qdrant (dense + sparse). If the collection is configured with named vectors `dense` and `sparse`, queries are ranked by fusing dense OpenAI embeddings and sparse BM25 scores; otherwise it falls back to dense-only search.
+
+`delete-knowledge` deletes one or more stored knowledge items from Qdrant by their point IDs. You can pass a single ID or a list of IDs (typically using the `id` field returned by `search-knowledge`).
 
 #### 3. Start the server
 
