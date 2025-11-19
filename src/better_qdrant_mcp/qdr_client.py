@@ -156,6 +156,40 @@ class QdrClient:
         )
         return [{"id": p.id, "payload": p.payload} for p in points]
 
+    def retrieve_points(
+        self, name: str, ids: List[str], with_vectors: bool = True
+    ) -> List[Dict[str, Any]]:
+        """Retrieve specific points by their IDs with full details.
+
+        Args:
+            name: Collection name
+            ids: List of point IDs to retrieve
+            with_vectors: Whether to include vector data (default: True)
+
+        Returns:
+            List of point dictionaries containing id, payload, and optionally vectors
+        """
+        if not ids:
+            return []
+
+        points = self._client.retrieve(
+            collection_name=name,
+            ids=ids,
+            with_payload=True,
+            with_vectors=with_vectors,
+        )
+
+        out: List[Dict[str, Any]] = []
+        for p in points:
+            point_dict: Dict[str, Any] = {
+                "id": p.id,
+                "payload": p.payload or {},
+            }
+            if with_vectors and p.vector is not None:
+                point_dict["vector"] = p.vector
+            out.append(point_dict)
+        return out
+
     def collection_info(self, name: str) -> Dict[str, Any]:
         info = self._client.get_collection(name)
         # qdrant-client returns a typed object; convert to dict

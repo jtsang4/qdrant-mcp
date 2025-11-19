@@ -11,7 +11,9 @@ An MCP server implemented with `fastmcp`, OpenAI embeddings, and `qdrant-client`
 - **Chinese support** via jieba
 - **Knowledge Base tools** (renamed from memory tools to avoid conflict):
   - `store-knowledge`
+  - `store-knowledge-bulk`
   - `search-knowledge`
+  - `get-knowledge-by-id`
   - `inspect-knowledge-base`
   - `delete-knowledge`
 - **Multiple transports**: stdio, SSE, streamable HTTP
@@ -48,15 +50,23 @@ Advanced / transport-related env:
 Once the server is running, the MCP client will see these tools:
 
 - `store-knowledge(content: str, title?: str, tags?: list[str], metadata?: dict, collection_name?: str) -> str`
+- `store-knowledge-bulk(items: list[KnowledgeItem], collection_name?: str) -> str`
 - `search-knowledge(query: str, limit?: int=5, collection_name?: str) -> str`
+- `get-knowledge-by-id(ids: list[str] | str, collection_name?: str) -> str`
 - `inspect-knowledge-base(collection_name?: str) -> str`
 - `delete-knowledge(ids: list[str] | str, collection_name?: str) -> str`
 
-`store-knowledge` automatically embeds the text using OpenAI and stores it in Qdrant (Knowledge Base), returning the stored point ID. The `title` and `tags` fields help improve search context and categorization.
+**`store-knowledge`** automatically embeds the text using OpenAI and stores it in Qdrant (Knowledge Base), returning the stored point ID. The `title` and `tags` fields help improve search context and categorization.
 
-`search-knowledge` uses hybrid search in Qdrant (dense + sparse). If the collection is configured with named vectors `dense` and `sparse`, queries are ranked by fusing dense OpenAI embeddings and sparse BM25 scores; otherwise it falls back to dense-only search.
+**`store-knowledge-bulk`** efficiently stores multiple knowledge items at once using batch embedding. Each item in the list should include `content` (required), and optionally `title`, `tags`, and `metadata` fields. This is more efficient than calling `store-knowledge` multiple times.
 
-`delete-knowledge` deletes one or more stored knowledge items from Qdrant by their point IDs. You can pass a single ID or a list of IDs (typically using the `id` field returned by `search-knowledge`).
+**`search-knowledge`** uses hybrid search in Qdrant (dense + sparse). If the collection is configured with named vectors `dense` and `sparse`, queries are ranked by fusing dense OpenAI embeddings and sparse BM25 scores; otherwise it falls back to dense-only search.
+
+**`get-knowledge-by-id`** retrieves the complete payload information for one or more knowledge items by their point IDs. Use this to inspect the full details of stored items (including `content`, `title`, `tags`, `metadata`, and `stored_at` timestamp). You can pass a single ID or a list of IDs (typically using the `id` field returned by `search-knowledge`).
+
+**`inspect-knowledge-base`** shows the collection configuration and sample data points, useful for debugging and verification.
+
+**`delete-knowledge`** deletes one or more stored knowledge items from Qdrant by their point IDs. You can pass a single ID or a list of IDs (typically using the `id` field returned by `search-knowledge`).
 
 #### 3. Start the server
 

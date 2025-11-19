@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Annotated
 import os
 import argparse
 from fastmcp import FastMCP
-from pydantic import Field, BeforeValidator
+from pydantic import BaseModel, Field, BeforeValidator
 import json
 
 from .config import get_settings
@@ -105,6 +105,124 @@ def store_knowledge(
     _qdr.upsert_points(collection, [point])
 
     return f"Information stored successfully in collection '{collection}' with ID: {point_id}"
+
+
+class KnowledgeItem(BaseModel):
+    """Model for a single knowledge item to be stored in bulk."""
+
+    content: str = Field(..., description="The content to store in the knowledge base.")
+    title: str = Field("", description="Optional title for the content.")
+    tags: List[str] = Field(
+        default_factory=list, description="Optional list of tags for categorization."
+    )
+    metadata: Dict[str, Any] = Field(
+        default_factory=dict, description="Optional JSON metadata to attach."
+    )
+
+
+@mcp.tool(
+    name="store-knowledge-bulk",
+    description=(
+        "Store multiple pieces of information or knowledge into the long-term knowledge base (Qdrant) at once. "
+        "This is more efficient than calling store-knowledge multiple times. "
+        "Each item is automatically embedded and stored with a unique ID."
+    ),
+)
+def store_knowledge_bulk(
+    items: List[KnowledgeItem] = Field(
+        ..., description="List of knowledge items to store in the knowledge base."
+    ),
+    collection_name: str = Field(
+        "", description="Optional collection to use; defaults to env COLLECTION_NAME."
+    ),
+) -> str:
+    """Store multiple texts into Qdrant with dense vectors produced by OpenAI embeddings.
+
+    Returns:
+        Confirmation message with the IDs of all stored items.
+    """
+    if not items:
+        return "No items provided to store."
+
+    collection = collection_name or _settings.default_collection
+    if not collection:
+        raise ValueError("Collection name is required")
+
+    # Prepare texts for batch embedding
+    texts_to_embed = []
+    for item in items:
+        text = f"{item.title}\n{item.content}" if item.title else item.content
+        texts_to_embed.append(text)
+
+    # Batch embed all texts at once
+    vectors = Embeddings.embed_many(texts_to_embed)
+
+    # Ensure collection exists with the right dimensionality for dense vectors
+    _qdr.ensure_collection(collection, len(vectors[0]))
+
+    # Get collection info to determine vector configuration
+    info = _qdr.collection_info(collection)
+    vectors_cfg = info.get("config", {}).get("params", {}).get("vectors")
+    has_named_dense = isinstance(vectors_cfg, dict) and "dense" in vectors_cfg
+
+    # Try to detect sparse configuration
+    sparse_cfg = info.get("config", {}).get("params", {}).get("sparse_vectors")
+    has_sparse = isinstance(sparse_cfg, dict) and "sparse" in sparse_cfg
+
+    # Generate sparse embeddings if needed
+    sparse_embeddings = None
+    if has_named_dense and has_sparse:
+        sparse_embeddings = SparseEmbeddings.embed_many(texts_to_embed)
+
+    # Build all points
+    points = []
+    point_ids = []
+    current_time = __import__("datetime").datetime.utcnow().isoformat() + "Z"
+
+    for idx, item in enumerate(items):
+        point_id = str(__import__("uuid").uuid4())
+        point_ids.append(point_id)
+
+        payload: Dict[str, Any] = {
+            "content": item.content,
+            "stored_at": current_time,
+        }
+        if item.title:
+            payload["title"] = item.title
+        if item.tags:
+            payload["tags"] = item.tags
+        if item.metadata:
+            payload["metadata"] = item.metadata
+
+        point: Dict[str, Any] = {
+            "id": point_id,
+            "payload": payload,
+        }
+
+        if has_named_dense:
+            # Named vectors: "dense" + optionally "sparse"
+            vectors_dict = {"dense": vectors[idx]}
+            if has_sparse and sparse_embeddings:
+                indices, values = sparse_embeddings[idx]
+                if indices and values:
+                    vectors_dict["sparse"] = {"indices": indices, "values": values}
+            point["vector"] = vectors_dict
+        else:
+            # Legacy single vector
+            point["vector"] = vectors[idx]
+
+        points.append(point)
+
+    # Batch upsert all points at once
+    _qdr.upsert_points(collection, points)
+
+    # Return detailed result
+    result_msg = (
+        f"Successfully stored {len(items)} item(s) in collection '{collection}'.\n"
+    )
+    result_msg += "IDs: " + ", ".join(point_ids)
+
+    return result_msg
 
 
 @mcp.tool(
@@ -225,6 +343,55 @@ def inspect_knowledge_base(
         out.append("Payload: " + __import__("json").dumps(payload, indent=2))
 
     return "\n".join(out)
+
+
+@mcp.tool(
+    name="get-knowledge-by-id",
+    description=(
+        "Retrieve specific knowledge items by their point IDs with full payload details. "
+        "Use this to inspect complete information about stored items. "
+        "Use the 'id' field returned from search-knowledge results."
+    ),
+)
+def get_knowledge_by_id(
+    ids: Annotated[List[str], BeforeValidator(_ensure_list)] = Field(
+        ...,
+        description="A single point ID or a list of point IDs to retrieve. Use the 'id' from search-knowledge results.",
+    ),
+    collection_name: str = Field(
+        "",
+        description="Optional collection to target; defaults to env COLLECTION_NAME.",
+    ),
+) -> str:
+    """Retrieve knowledge points by their IDs with payload information.
+
+    Returns:
+        JSON string containing detailed point information including id and payload.
+    """
+    collection = collection_name or _settings.default_collection
+    if not collection:
+        raise ValueError("Collection name is required")
+
+    if not ids:
+        raise ValueError("At least one ID is required to retrieve knowledge")
+
+    # Retrieve points without vectors
+    points = _qdr.retrieve_points(collection, ids, with_vectors=False)
+
+    if not points:
+        return f"No knowledge items found with the provided ID(s): {', '.join(ids)}"
+
+    # Format the results for better readability
+    structured_results: List[Dict[str, Any]] = []
+    for p in points:
+        structured_results.append(
+            {
+                "id": p.get("id"),
+                "payload": p.get("payload", {}),
+            }
+        )
+
+    return json.dumps(structured_results, ensure_ascii=False, indent=2)
 
 
 @mcp.tool(
